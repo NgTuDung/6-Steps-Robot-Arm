@@ -12,6 +12,7 @@
 #include <Wire.h>
 SoftwareSerial Bluetooth(3, 4);
 
+
 //VL53L0X sensor;
 Servo servo01;
 Servo servo02;
@@ -163,8 +164,8 @@ void loop()
 
     if (dataIn.startsWith("RUN"))
       {
-        //return_to_default();
-        run_program();
+        return_to_default();
+        run_program()
       }
   }
 }
@@ -203,3 +204,128 @@ void return_to_default()
 
 }
 
+// Thực hiện chức năng phát hiện và gắp vật đến vị trí yêu cầu
+void run_program()
+{
+  while(dataIn != "PAUSE")
+  {
+    if (Bluetooth.available() > 0) 
+    {     
+      dataIn = Bluetooth.readString();
+      if (dataIn.startsWith("s8"))
+      {
+        String dataInS = dataIn.substring(2, dataIn.length()); 
+        Goc_quay = dataInS.toInt();
+      }
+      if ( dataIn == "PAUSE") break;
+    }
+    
+    int runn = 0;
+
+    // Bước 1: Bắn cảm biến để phát hiện vật
+    distance = 0;
+    distance = sensor.readRangeContinuousMillimeters();
+    while(distance > 350)
+      {
+        if (Bluetooth.available() > 0) 
+        { 
+          dataIn = Bluetooth.readString();
+          if (dataIn.startsWith("s8"))
+            {
+              String dataInS = dataIn.substring(2, dataIn.length()); 
+              Goc_quay = dataInS.toInt();
+            }
+          if ( dataIn == "PAUSE") { runn = 1; break;} 
+        }
+        distance = sensor.readRangeContinuousMillimeters();  
+      }
+  
+    if(runn == 0)
+      {
+        delay(2000);
+        // Bước 2: Về trạng thái sẵn sàng
+        for(int i=1; i<=5; ++i)
+          {
+            for(int j=1; j<=5; ++j) {servo3PPos++; servo03.write(servo3PPos); delay(1);}
+            delay(5);
+            for(int j=1; j<=28; ++j) {servo5PPos++; servo05.write(servo5PPos); delay(1);}
+            delay(10);
+            for(int j=1; j<=16; ++j) {servo2PPos--; servo02.write(servo2PPos); delay(1);}
+            delay(5);
+          }
+        delay(500);
+        servo06.write(85);
+        delay(500);
+        /// Bước 3: Đi gắp
+        for(int i=1; i<=5; ++i)
+          {
+            for(int j=1; j<=7; ++j) {servo3PPos--; servo03.write(servo3PPos); delay(5);}
+            for(int j=1; j<=4; ++j) {servo5PPos--; servo05.write(servo5PPos); delay(5);}
+            for(int j=1; j<=4; ++j) {servo2PPos--; servo02.write(servo2PPos); delay(5);}
+          }
+        delay(1000);
+        servo06.write(15);
+        delay(1000);
+        // Bước 4: Nhấc vật lên, đưa vật lên bằng servo 3, 5 
+        int tt = 15;
+        for(int i=1; i<=tt; ++i) 
+          {
+            servo5PPos++; servo05.write(servo5PPos); delay(15);
+            servo3PPos--; servo03.write(servo3PPos); delay(15);
+          }
+        delay(1500);
+        
+        // Bước 5: Quay servo 01 đưa đến góc đã setup
+        int xx; 
+        if(servo1PPos < Goc_quay) 
+          {
+            xx = Goc_quay - servo1PPos;
+            for(int i=1; i<=xx; ++i) {servo1PPos++; servo01.write(servo1PPos); delay(15);}
+          }
+        if(servo1PPos > Goc_quay) 
+          {
+            xx = servo1PPos - Goc_quay;
+            for(int i=1; i<=xx; ++i) {servo1PPos--; servo01.write(servo1PPos); delay(15);}
+          }
+
+        // Bước 6: Đặt vật xuống, nhả tay gắp
+        for(int i=1; i<=tt; ++i) 
+          {
+            servo5PPos--; servo05.write(servo5PPos); delay(15);
+            servo3PPos++; servo03.write(servo3PPos); delay(15);
+          }
+        delay(1000);
+        servo06.write(80);
+        delay(1000);
+
+        // Bước 7: Về lại vị trí đã setup ban đầu
+        for(int i=1; i<=5; ++i)
+          {
+            for(int j=1; j<=7; ++j) {servo3PPos++; servo03.write(servo3PPos); delay(5);}
+            for(int j=1; j<=4; ++j) {servo5PPos++; servo05.write(servo5PPos); delay(5);}
+            for(int j=1; j<=4; ++j) {servo2PPos++; servo02.write(servo2PPos); delay(5);}
+          }
+        delay(1000);
+        for(int i=1; i<=5; ++i)
+          {
+            for(int j=1; j<=5; ++j) {servo3PPos--; servo03.write(servo3PPos); delay(1);}
+            delay(5);
+            for(int j=1; j<=28; ++j) {servo5PPos--; servo05.write(servo5PPos); delay(1);}
+            delay(10);
+            for(int j=1; j<=16; ++j) {servo2PPos++; servo02.write(servo2PPos); delay(1);}
+            delay(5);
+          }
+        delay(1000);
+        if(servo1PPos > 90) 
+          {
+            xx = servo1PPos - 90;
+            for(int i=1; i<=xx; ++i) {servo1PPos--; servo01.write(servo1PPos); delay(10);}
+          }
+        if(servo1PPos < 90)
+          {
+            xx = 90 - servo1PPos;
+            for(int i=1; i<=xx; ++i) {servo1PPos++; servo01.write(servo1PPos); delay(10);}
+          }
+      }
+  }
+}
